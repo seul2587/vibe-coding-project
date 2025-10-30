@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- [EDIT] v5.1: 타이틀 변경 -->
+    <title>나만의 전공 용어집</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'custom-purple': '#9165E2',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        textarea {
+            resize: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 sm:p-8">
+    
+    <main class="max-w-3xl mx-auto bg-white p-6 sm:p-8 rounded-xl shadow-lg">
+        
+        <header class="mb-6">
+            <!-- [EDIT] v5.1: 메인 타이틀 변경 -->
+            <h1 class="text-3xl font-bold text-center text-custom-purple">나만의 전공 용어집</h1>
+            <!-- [EDIT] v5.1: 부제(버전 정보) 제거 -->
+            <!-- <p class="text-center text-gray-600 mt-2">v5.0 (카테고리 UI 개선)</p> -->
+        </header>
+
+        <!-- 용어 추가/수정 폼 -->
+        <form id="addTermForm" class="mb-6 space-y-4" data-editing-id="">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <!-- [EDIT] v5.1: 레이블 텍스트 변경 -->
+                    <label for="termInput" class="block text-sm font-medium text-gray-700 mb-1">전공 용어 / 약어</label>
+                    <input type="text" id="termInput" placeholder="예: CNN, Overfitting..." required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-custom-purple">
+                </div>
+                
+                <div>
+                    <label for="categorySelect" class="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
+                    <select id="categorySelect"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-custom-purple bg-white">
+                        <option value="" disabled selected>카테고리 선택...</option>
+                        <!-- JS로 동적 생성 -->
+                        <option value="add_new" class="font-bold text-blue-600">[ + 새 카테고리 추가 ]</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="newCategoryWrapper" class="hidden">
+                <label for="newCategoryInput" class="block text-sm font-medium text-gray-700 mb-1">새 카테고리 이름</label>
+                <input type="text" id="newCategoryInput" placeholder="예: ML, 통계, Python..."
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-custom-purple bg-gray-50">
+            </div>
+
+            <div>
+                <label for="meaningInput" class="block text-sm font-medium text-gray-700 mb-1">나만의 정의 / 의미</label>
+                <textarea id="meaningInput" rows="3" placeholder="예: 합성곱 신경망. 이미지 인식(분류, 탐지)에 특화." required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-custom-purple"></textarea>
+            </div>
+
+            <div>
+                <label for="imageUrlInput" class="block text-sm font-medium text-gray-700 mb-1">이미지 URL (선택)</label>
+                <input type="text" id="imageUrlInput" placeholder="https://... 이미지 주소를 붙여넣으세요"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-custom-purple">
+                
+                <label for="imageFileInput" class="block text-sm font-medium text-gray-700 mt-3 mb-1">...또는 파일 업로드 (URL로 자동 변환)</label>
+                <input type="file" id="imageFileInput" accept="image/*"
+                       class="w-full text-sm text-gray-500 rounded-md file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-custom-purple hover:file:bg-purple-100 cursor-pointer">
+            </div>
+
+            <div id="formError" class="text-red-600 text-sm hidden font-medium"></div>
+
+            <div>
+                <button type="submit" id="addBtn"
+                        class="w-full bg-custom-purple text-white font-semibold py-2 px-4 rounded-md shadow-md hover:opacity-90 transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-custom-purple">
+                    추가하기
+                </button>
+                <div id="editBtnGroup" class="hidden flex space-x-3">
+                    <button type="submit" id="saveBtn"
+                            class="flex-1 bg-green-600 text-white font-semibold py-2 px-4 rounded-md shadow-md hover:bg-green-700 transition">
+                        변경사항 저장
+                    </button>
+                    <button type="button" id="cancelEditBtn"
+                            class="flex-1 bg-gray-500 text-white font-semibold py-2 px-4 rounded-md shadow-md hover:bg-gray-600 transition">
+                        취소
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <hr class="my-6 border-gray-200">
+
+        <div class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label for="filterCategory" class="block text-sm font-medium text-gray-700 mb-1">카테고리 필터</label>
+                <select id="filterCategory" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-custom-purple bg-white">
+                    <option value="all">전체 보기</option>
+                    <!-- JS로 동적 생성 -->
+                </select>
+            </div>
+            <div>
+                <!-- [EDIT] v5.1: 레이블 텍스트 변경 -->
+                <label for="searchInput" class="block text-sm font-medium text-gray-700 mb-1">전공 용어 검색</label>
+                <input type="search" id="searchInput" placeholder="저장된 전공 용어 검색..."
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-custom-purple">
+            </div>
+        </div>
+
+        <div>
+            <h2 class="text-xl font-semibold text-gray-800 mb-3">저장된 목록</h2>
+            <ul id="termList" class="space-y-4">
+                <!-- JS로 동적 생성 -->
+            </ul>
+            <p id="emptyMessage" class="text-gray-500 text-center py-6 hidden"></p>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- 1. DOM 요소 선택 ---
+            const addForm = document.getElementById('addTermForm');
+            const termInput = document.getElementById('termInput');
+            const meaningInput = document.getElementById('meaningInput');
+            const searchInput = document.getElementById('searchInput');
+            const termList = document.getElementById('termList');
+            const emptyMessage = document.getElementById('emptyMessage');
+            const formError = document.getElementById('formError');
+            const addBtn = document.getElementById('addBtn');
+            const editBtnGroup = document.getElementById('editBtnGroup');
+            const saveBtn = document.getElementById('saveBtn');
+            const cancelEditBtn = document.getElementById('cancelEditBtn');
+            
+            const categorySelect = document.getElementById('categorySelect');
+            const newCategoryWrapper = document.getElementById('newCategoryWrapper');
+            const newCategoryInput = document.getElementById('newCategoryInput');
+            
+            const imageUrlInput = document.getElementById('imageUrlInput');
+            const filterCategory = document.getElementById('filterCategory');
+            const imageFileInput = document.getElementById('imageFileInput');
+
+            // --- 2. 상태 및 상수 ---
+            // [EDIT] v5.1: 스토리지 키 이름 변경
+            const STORAGE_KEY = 'majorTermDictionary_v5'; 
+            let terms = [];
+
+            // --- 3. 핵심 함수 ---
+
+            function loadTerms() {
+                const storedTerms = localStorage.getItem(STORAGE_KEY);
+                if (storedTerms) {
+                    terms = JSON.parse(storedTerms).map(term => ({
+                        id: term.id,
+                        term: term.term,
+                        meaning: term.meaning,
+                        category: term.category || '기타',
+                        imageUrl: term.imageUrl || ''
+                    }));
+                }
+                updateCategoryUI(); 
+                applyFilters(); 
+            }
+
+            function saveTerms() {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(terms));
+            }
+            
+            function updateCategoryUI() {
+                const categories = [...new Set(terms.map(t => t.category))].sort();
+                
+                // 1. 카테고리 필터 드롭다운 업데이트
+                const currentFilter = filterCategory.value;
+                filterCategory.innerHTML = '<option value="all">전체 보기</option>';
+                categories.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat;
+                    option.textContent = cat;
+                    filterCategory.appendChild(option);
+                });
+                filterCategory.value = currentFilter;
+
+                // 2. 카테고리 입력폼 <select> 업데이트
+                const addNewOption = categorySelect.querySelector('option[value="add_new"]');
+                
+                Array.from(categorySelect.options).forEach(opt => {
+                    if (opt.value !== "" && opt.value !== "add_new") {
+                        opt.remove();
+                    }
+                });
+                
+                categories.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat;
+                    option.textContent = cat;
+                    categorySelect.insertBefore(option, addNewOption);
+                });
+            }
+
+            function getCategoryBadge(category) {
+                let colorClasses = 'bg-gray-200 text-gray-800'; // '기타'
+                switch (category) {
+                    case 'ML':
+                        colorClasses = 'bg-blue-100 text-blue-800';
+                        break;
+                    case 'DL':
+                        colorClasses = 'bg-pink-100 text-pink-800'; 
+                        break;
+                    case 'Python':
+                        colorClasses = 'bg-yellow-100 text-yellow-800';
+                        break;
+                    case 'Data':
+                        colorClasses = 'bg-green-100 text-green-800';
+                        break;
+                    case 'NLP':
+                        colorClasses = 'bg-indigo-100 text-indigo-800';
+                        break;
+                    case '통계':
+                        colorClasses = 'bg-green-100 text-green-800';
+                        break;
+                    default:
+                        if (category !== '기타') {
+                            colorClasses = 'bg-gray-200 text-gray-800';
+                        }
+                }
+                return `<span class="text-xs font-medium px-2.5 py-0.5 rounded-full ${colorClasses}">${category}</span>`;
+            }
+
+            function renderList(filteredTerms = null) {
+                const termsToDisplay = filteredTerms || terms;
+                
+                termList.innerHTML = '';
+                emptyMessage.classList.add('hidden');
+
+                if (termsToDisplay.length === 0) {
+                    emptyMessage.textContent = terms.length === 0 ? "저장된 용어가 없습니다." : '일치하는 용어가 없습니다.';
+                    emptyMessage.classList.remove('hidden');
+                } else {
+                    termsToDisplay.slice().reverse().forEach(term => {
+                        const li = document.createElement('li');
+                        li.className = 'bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200';
+                        li.dataset.id = term.id; 
+
+                        let imageHtml = '';
+                        if (term.imageUrl) {
+                            imageHtml = `
+                                <div class="mt-3">
+                                    <img src="${term.imageUrl}" 
+                                         alt="${term.term} 이미지" 
+                                         class="rounded-md w-full max-w-sm h-auto object-cover border border-gray-200"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                    <span class="text-xs text-red-500 hidden mt-1">
+                                        이미지를 불러올 수 없습니다. URL을 확인하세요.
+                                    </span>
+                                </div>
+                            `;
+                        }
+
+                        li.innerHTML = `
+                            <div class="flex items-center justify-between mb-2">
+                                <strong class="text-lg text-custom-purple font-semibold truncate">${term.term}</strong>
+                                ${getCategoryBadge(term.category)}
+                            </div>
+                            <div class="flex-1 min-w-0 mr-4">
+                                <p class="text-gray-700 block whitespace-pre-wrap mb-2">${term.meaning}</p>
+                                ${imageHtml}
+                            </div>
+                            
+                            <div class="flex-shrink-0 flex space-x-2 mt-4">
+                                <button class="edit-btn bg-yellow-500 text-white text-xs font-medium py-1 px-3 rounded-md hover:bg-yellow-600 transition">
+                                    수정
+                                </button>
+                                <button class="delete-btn bg-red-500 text-white text-xs font-medium py-1 px-3 rounded-md hover:bg-red-600 transition">
+                                    삭제
+                                </button>
+                            </div>
+                        `;
+                        termList.appendChild(li);
+                    });
+                }
+            }
+
+            function showError(message) {
+                formError.textContent = message;
+                formError.classList.remove('hidden');
+            }
+
+            function clearError() {
+                formError.textContent = '';
+                formError.classList.add('hidden');
+            }
+
+            function toggleFormMode(mode, term = null) {
+                clearError();
+                
+                if (mode === 'edit') {
+                    addForm.dataset.editingId = term.id;
+                    termInput.value = term.term;
+                    meaningInput.value = term.meaning;
+                    categorySelect.value = term.category; 
+                    imageUrlInput.value = term.imageUrl;
+                    
+                    newCategoryWrapper.classList.add('hidden'); 
+                    newCategoryInput.value = '';
+                    
+                    addBtn.classList.add('hidden');
+                    editBtnGroup.classList.remove('hidden');
+                    
+                    termInput.focus();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                } else { // 'add' 모드
+                    addForm.dataset.editingId = '';
+                    addForm.reset();
+                    imageFileInput.value = null;
+                    
+                    categorySelect.value = ''; 
+                    newCategoryWrapper.classList.add('hidden'); 
+                    newCategoryInput.value = '';
+
+                    addBtn.classList.remove('hidden');
+                    editBtnGroup.classList.add('hidden');
+                }
+            }
+
+            function handleFormSubmit(e) {
+                e.preventDefault();
+                clearError();
+
+                const termValue = termInput.value.trim();
+                const meaningValue = meaningInput.value.trim();
+                const imageUrlValue = imageUrlInput.value.trim();
+                const editingId = addForm.dataset.editingId;
+
+                let finalCategory = '';
+                const selectedCategory = categorySelect.value;
+                
+                if (selectedCategory === 'add_new') {
+                    finalCategory = newCategoryInput.value.trim();
+                    if (!finalCategory) {
+                        showError("새 카테고리 이름을 입력해주세요.");
+                        return;
+                    }
+                } else if (!selectedCategory) {
+                    showError("카테고리를 선택해주세요.");
+                    return;
+                } else {
+                    finalCategory = selectedCategory;
+                }
+
+                if (!termValue || !meaningValue) {
+                    // [EDIT] v5.1: 오류 메시지 텍스트 변경
+                    showError("전공 용어와 '나만의 정의'를 모두 입력해주세요.");
+                    return; 
+                }
+
+                if (editingId) {
+                    const termIndex = terms.findIndex(t => t.id === Number(editingId));
+                    if (termIndex > -1) {
+                        terms[termIndex].term = termValue;
+                        terms[termIndex].meaning = meaningValue;
+                        terms[termIndex].category = finalCategory; 
+                        terms[termIndex].imageUrl = imageUrlValue;
+                    }
+                } else {
+                    const newTerm = {
+                        id: Date.now(),
+                        term: termValue,
+                        meaning: meaningValue,
+                        category: finalCategory, 
+                        imageUrl: imageUrlValue
+                    };
+                    terms.push(newTerm);
+                }
+                
+                saveTerms();
+                toggleFormMode('add');
+                
+                searchInput.value = '';
+                
+                updateCategoryUI(); 
+                filterCategory.value = finalCategory; 
+                applyFilters();
+            }
+
+            function handleListClick(e) {
+                const target = e.target;
+                const li = target.closest('li');
+                if (!li) return;
+                
+                const id = Number(li.dataset.id);
+
+                if (target.classList.contains('delete-btn')) {
+                    terms = terms.filter(term => term.id !== id);
+                    saveTerms();
+                    
+                    if (id === Number(addForm.dataset.editingId)) {
+                        toggleFormMode('add');
+                    }
+                    updateCategoryUI(); 
+                    applyFilters(); 
+                } 
+                else if (target.classList.contains('edit-btn')) {
+                    const termToEdit = terms.find(term => term.id === id);
+                    if (termToEdit) {
+                        toggleFormMode('edit', termToEdit);
+                    }
+                }
+            }
+
+            function applyFilters() {
+                const query = searchInput.value.toLowerCase().trim();
+                const category = filterCategory.value;
+
+                let filtered = terms;
+
+                if (category !== 'all') {
+                    filtered = filtered.filter(term => term.category === category);
+                }
+
+                if (query) {
+                    filtered = filtered.filter(term =>
+                        term.term.toLowerCase().includes(query) ||
+                        term.meaning.toLowerCase().includes(query)
+                    );
+                }
+                
+                renderList(filtered);
+            }
+            
+            function handleImageUpload(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                if (file.size > 2 * 1024 * 1024) { 
+                    showError("파일 크기가 2MB를 초과합니다. LocalStorage 한계를 위해 더 작은 파일을 업로드해주세요.");
+                    e.target.value = null;
+                    return;
+                }
+                
+                clearError();
+                const reader = new FileReader();
+                
+                reader.onloadend = () => {
+                    imageUrlInput.value = reader.result;
+                };
+                
+                reader.onerror = () => {
+                    showError("이미지 파일을 읽는 데 실패했습니다.");
+                };
+                
+                reader.readAsDataURL(file);
+            }
+
+            // --- 4. 이벤트 리스너 연결 ---
+            addForm.addEventListener('submit', handleFormSubmit);
+            termList.addEventListener('click', handleListClick);
+            cancelEditBtn.addEventListener('click', () => {
+                toggleFormMode('add');
+            });
+            
+            searchInput.addEventListener('input', applyFilters);
+            filterCategory.addEventListener('change', applyFilters);
+            imageFileInput.addEventListener('change', handleImageUpload);
+            
+            categorySelect.addEventListener('change', () => {
+                if (categorySelect.value === 'add_new') {
+                    newCategoryWrapper.classList.remove('hidden');
+                    newCategoryInput.focus();
+                } else {
+                    newCategoryWrapper.classList.add('hidden');
+                }
+            });
+
+            // --- 5. 앱 초기화 ---
+            loadTerms();
+
+        });
+    </script>
+</body>
+</html>
+
